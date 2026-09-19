@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tributário - G&P Consultoria</title>
+    <!-- Importando Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Importando Apache ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    
+    <style>
+        /* Padrões de Qualidade: Frontend e UI/UX (Pro Level) */
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 32px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .filters {
+            display: flex;
+            gap: 16px;
+        }
+
+        select {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background-color: var(--card-bg);
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+        }
+
+        /* Cards de KPI */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .kpi-title {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Gráficos */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-card {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            flex: 1;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Visão Geral Tributária</h1>
+        <div class="filters">
+            <select id="filter-year">
+                <option value="Todos">Todos os Anos</option>
+            </select>
+            <select id="filter-month">
+                <option value="Todos">Todos os Meses</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-title">Faturamento Mensal (Médio/Total)</span>
+            <span class="kpi-value" id="kpi-fat-mensal">R$ 0,00</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Faturamento Acumulado (R12) Máximo</span>
+            <span class="kpi-value" id="kpi-fat-r12">R$ 0,00</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Imposto Total (Guia DAS)</span>
+            <span class="kpi-value" id="kpi-imposto">R$ 0,00</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Alíquota Efetiva Média</span>
+            <span class="kpi-value" id="kpi-aliquota">0,00%</span>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-title">Evolução de Faturamento (Mensal vs R12)</div>
+            <div id="chart-faturamento" class="chart-container"></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Relação: Imposto Devido vs Alíquota Efetiva</div>
+            <div id="chart-impostos" class="chart-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Estrutura de Dados Modular: Desacoplamento da lógica visual (Retrocompatibilidade)
+        // Substitua este array com a extração completa do arquivo Excel quando for retroalimentar.
+        const DATA_SOURCE = [
+            { "Ano": "2023", "Mes": "01", "Meses_Str": "2023-01", "Fat_Mensal": 45120.50, "Fat_Anual_R12": 520400.00, "Imposto_Total": 3158.43, "Aliq_Efetiva": 0.07 },
+            { "Ano": "2023", "Mes": "02", "Meses_Str": "2023-02", "Fat_Mensal": 48300.00, "Fat_Anual_R12": 535200.00, "Imposto_Total": 3381.00, "Aliq_Efetiva": 0.07 },
+            { "Ano": "2023", "Mes": "03", "Meses_Str": "2023-03", "Fat_Mensal": 51200.25, "Fat_Anual_R12": 560100.50, "Imposto_Total": 4096.02, "Aliq_Efetiva": 0.08 },
+            { "Ano": "2023", "Mes": "04", "Meses_Str": "2023-04", "Fat_Mensal": 47500.00, "Fat_Anual_R12": 580000.00, "Imposto_Total": 3800.00, "Aliq_Efetiva": 0.08 },
+            { "Ano": "2023", "Mes": "05", "Meses_Str": "2023-05", "Fat_Mensal": 53100.10, "Fat_Anual_R12": 595400.10, "Imposto_Total": 4513.50, "Aliq_Efetiva": 0.085 },
+            { "Ano": "2024", "Mes": "01", "Meses_Str": "2024-01", "Fat_Mensal": 55000.00, "Fat_Anual_R12": 610000.00, "Imposto_Total": 4950.00, "Aliq_Efetiva": 0.09 },
+            { "Ano": "2024", "Mes": "02", "Meses_Str": "2024-02", "Fat_Mensal": 58200.00, "Fat_Anual_R12": 630500.00, "Imposto_Total": 5238.00, "Aliq_Efetiva": 0.09 }
+        ];
+
+        // Inicialização do Apache ECharts
+        const chartFaturamento = echarts.init(document.getElementById('chart-faturamento'));
+        const chartImpostos = echarts.init(document.getElementById('chart-impostos'));
+
+        // Formatadores Utilitários
+        const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+        const formatPercent = (val) => new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(val);
+
+        // Filtros Responsivos aos Dados: Gerados em tempo de execução
+        function initFilters() {
+            const yearSelect = document.getElementById('filter-year');
+            const monthSelect = document.getElementById('filter-month');
+            
+            const years = [...new Set(DATA_SOURCE.map(d => d.Ano))].sort();
+            const months = [...new Set(DATA_SOURCE.map(d => d.Mes))].sort();
+
+            years.forEach(year => {
+                yearSelect.add(new Option(year, year));
+            });
+            months.forEach(month => {
+                monthSelect.add(new Option(month, month));
+            });
+
+            yearSelect.addEventListener('change', updateDashboard);
+            monthSelect.addEventListener('change', updateDashboard);
+        }
+
+        // Motor de Atualização (Retrocompatível e Dinâmico)
+        function updateDashboard() {
+            const selectedYear = document.getElementById('filter-year').value;
+            const selectedMonth = document.getElementById('filter-month').value;
+
+            // Filtragem
+            let filteredData = DATA_SOURCE.filter(d => {
+                const matchYear = selectedYear === 'Todos' || d.Ano === selectedYear;
+                const matchMonth = selectedMonth === 'Todos' || d.Mes === selectedMonth;
+                return matchYear && matchMonth;
+            });
+
+            if(filteredData.length === 0) return;
+
+            // Recálculo de KPIs
+            const sumFatMensal = filteredData.reduce((acc, curr) => acc + curr.Fat_Mensal, 0);
+            const maxR12 = Math.max(...filteredData.map(d => d.Fat_Anual_R12));
+            const sumImposto = filteredData.reduce((acc, curr) => acc + curr.Imposto_Total, 0);
+            const avgAliquota = filteredData.reduce((acc, curr) => acc + curr.Aliq_Efetiva, 0) / filteredData.length;
+
+            document.getElementById('kpi-fat-mensal').innerText = formatCurrency(sumFatMensal);
+            document.getElementById('kpi-fat-r12').innerText = formatCurrency(maxR12);
+            document.getElementById('kpi-imposto').innerText = formatCurrency(sumImposto);
+            document.getElementById('kpi-aliquota').innerText = formatPercent(avgAliquota);
+
+            // Preparação de Dados para os Gráficos
+            const xAxisData = filteredData.map(d => d.Meses_Str);
+            const dataFatMensal = filteredData.map(d => d.Fat_Mensal);
+            const dataR12 = filteredData.map(d => d.Fat_Anual_R12);
+            const dataImposto = filteredData.map(d => d.Imposto_Total);
+            const dataAliquota = filteredData.map(d => (d.Aliq_Efetiva * 100).toFixed(2));
+
+            // Atualização Dinâmica (chart.setOption)
+            chartFaturamento.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['Fat. Mensal', 'Acumulado R12'], bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                xAxis: { type: 'category', data: xAxisData },
+                yAxis: [
+                    { type: 'value', name: 'Mensal' },
+                    { type: 'value', name: 'R12', splitLine: { show: false } }
+                ],
+                series: [
+                    { name: 'Fat. Mensal', type: 'bar', data: dataFatMensal, itemStyle: { color: '#3b82f6' } },
+                    { name: 'Acumulado R12', type: 'line', yAxisIndex: 1, data: dataR12, smooth: true, itemStyle: { color: '#f59e0b' } }
+                ]
+            });
+
+            chartImpostos.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['Imposto Total', 'Alíquota Efetiva (%)'], bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                xAxis: { type: 'category', data: xAxisData },
+                yAxis: [
+                    { type: 'value', name: 'Imposto (R$)' },
+                    { type: 'value', name: 'Alíquota (%)', splitLine: { show: false } }
+                ],
+                series: [
+                    { name: 'Imposto Total', type: 'bar', data: dataImposto, itemStyle: { color: '#ef4444' } },
+                    { name: 'Alíquota Efetiva (%)', type: 'line', yAxisIndex: 1, data: dataAliquota, smooth: true, itemStyle: { color: '#10b981' } }
+                ]
+            });
+        }
+
+        // Execução Inicial
+        initFilters();
+        updateDashboard();
+
+        // Responsividade do Apache ECharts
+        window.addEventListener('resize', () => {
+            chartFaturamento.resize();
+            chartImpostos.resize();
+        });
+    </script>
+</body>
+</html>
